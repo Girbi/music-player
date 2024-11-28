@@ -1,273 +1,307 @@
 import os
 import time
-from io import BytesIO
 from tkinter import (
     ACTIVE,
     BOTH,
-    BOTTOM,
-    DISABLED,
     END,
     GROOVE,
-    LEFT,
-    NORMAL,
     RIGHT,
     VERTICAL,
     Button,
     Label,
     LabelFrame,
     Listbox,
-    Scale,
     Scrollbar,
     StringVar,
     Tk,
-    X,
     filedialog,
 )
 
-import audio_metadata
 import pygame.mixer as mixer
-from PIL import Image, ImageTk
+import tksvg
 
-
-# Function to play the selected songs from the list or directory.
-def play_song(song_name: StringVar, song_list: Listbox, status: StringVar):
-    # Set the name of the current played song on the window.
-    name = song_list.get(ACTIVE)
-    if len(name) > 40:
-        name = name[:35] + ".mp3"
-    song_name.set(name)
-
-    # Load the selected song and start the mixer/play the song.
-    mixer.music.load(song_list.get(ACTIVE))
-    mixer.music.play()
-
-    # Extract the total song duration from the metadata of the song.
-    global duration, metadata
-    metadata = audio_metadata.load(song_list.get(ACTIVE))
-    song_len = metadata.streaminfo["duration"]
-    duration = time.strftime("%M:%S", time.gmtime(song_len))
-
-    # Call the play_time function when the song is played.
-    play_time()
-
-    # Set the status of the player to Playing.
-    status.set("Song Playing..")
-
-    # Active the disabled resume button.
-    if resume_btn["state"] == DISABLED:
-        resume_btn["state"] = NORMAL
-
-    # Show the cover photo of the song.
-    # get_song_img()
-
-
-# Function to stop the current song and set the status of the player to 'stop'.
-def stop_song(status: StringVar):
-    mixer.music.stop()
-    status.set("Song Stopped!!")
-
-    # Disable the resume button when the song is stoped.
-    resume_btn["state"] = DISABLED
-
-
-# Function to pause the current song and set the status of the player to 'pause'.
-def pause_song(status: StringVar):
-    mixer.music.pause()
-    status.set("Song Paused!")
-
-
-# Function to resume the paused song and set the status of the player to 'resume'.
-def resume_song(status: StringVar):
-    mixer.music.unpause()
-    if status.get() == "<Not Available>":
-        status.set("Please Select a song!")
-    else:
-        status.set("Song Playing..")
-
-
-# Function to load all the songs from the specified directory.
-def load(listbox):
-    # Request the user to input the path of the directory and os will change to that directory.
-    os.chdir(filedialog.askdirectory(title="Open a song Directory"))
-
-    # List all the songs present in the specified directory.
-    tracks = os.listdir()
-
-    # Takes all the songs from the directory and store in listbox.
-    for track in tracks:
-        listbox.insert(END, track)
-
-
-# Function to change the sound volume.
-def volume(x):
-    value = volume_slider.get()
-    mixer.music.set_volume(value / 100)
-
-
-def play_time():
-    # Fetch the song's current time position,
-    current_time = mixer.music.get_pos() / 1000
-
-    # Convert the time into minute and second format.
-    converted_current_time = time.strftime("%M:%S", time.gmtime(current_time))
-
-    # show the time on the duration frame and reset the timer when the song is stopped.
-    song_duration = duration
-    if song_status.get() != "Song Stopped!!":
-        duration_frame.config(
-            text=f"Time Elapsed: {converted_current_time} / {song_duration}"
-        )
-    else:
-        duration_frame.config(text=f"Time Elapsed: 00:00 / {song_duration}")
-
-    duration_frame.after(1000, play_time)
-
-
-def get_song_img():
-    # get all metadata of song.mp3
-    artwork = metadata.pictures[0].data
-    stream = BytesIO(artwork)
-
-    img = Image.open(stream)
-    img_size = img.resize((50, 50))
-    new_img = ImageTk.PhotoImage(img_size)
-
-    image_label = Label(root, image=new_img)
-    image_label.place(x=150, y=190)
-
-
-# Starting the mixer.
+# Initialize Mixer
 mixer.init()
 
-# Initializing the parent window of the GUI and set the resolution and the title of the GUI.
+
+# Helper Functions
+def load_songs(listbox: Listbox):
+    """Load all songs from a directory."""
+    directory = filedialog.askdirectory(title="Select Songs Directory")
+    if directory:
+        os.chdir(directory)
+        songs = [song for song in os.listdir() if song.endswith(".mp3")]
+        listbox.delete(0, END)
+        for song in songs:
+            listbox.insert(END, song)
+
+
+def play_song(song_list: Listbox):
+    """Play the selected song."""
+    global is_playing, is_paused, current_song_length
+
+    selected_song = song_list.get(ACTIVE)
+    if not selected_song:
+        return  # No song selected
+
+    # Update the current song name
+    current_song_name.set(selected_song)
+
+    # Load and play the selected song
+    mixer.music.load(selected_song)
+    mixer.music.play()
+
+    # Cache the song length
+    current_song_length = get_song_length(selected_song)
+
+    is_playing = True
+    is_paused = False
+    play_btn.config(image=pause_icon)
+
+    # Update the current time display
+    update_time_display()
+
+
+def handle_song_state(song_list: Listbox):
+    """Play, pause, or resume the selected song."""
+    global is_playing, is_paused
+
+    if is_playing and not is_paused:
+        # Pause the song
+        mixer.music.pause()
+        is_paused = True
+        play_btn.config(image=play_icon)
+    elif is_paused:
+        # Resume the song
+        mixer.music.unpause()
+        is_paused = False
+        play_btn.config(image=pause_icon)
+    else:
+        # Play the song
+        play_song(song_list)
+
+
+def stop_song():
+    """Stop the current song."""
+    global is_playing, is_paused
+    mixer.music.stop()
+    is_playing = False
+    is_paused = False
+    play_btn.config(image=play_icon)
+
+
+def next_song(song_list: Listbox):
+    """Play the next song in the playlist."""
+    global is_playing, is_paused
+    current_index = song_list.curselection()
+    if current_index:
+        # Select the next song
+        next_index = (current_index[0] + 1) % song_list.size()
+        song_list.selection_clear(0, END)
+        song_list.selection_set(next_index)
+        song_list.activate(next_index)
+
+        # Reset and play the next song
+        is_playing = False
+        is_paused = False
+        play_song(song_list)
+
+
+def previous_song(song_list: Listbox):
+    """Play the previous song in the playlist."""
+    global is_playing, is_paused
+    current_index = song_list.curselection()
+    if current_index:
+        # Select the previous song
+        prev_index = (current_index[0] - 1) % song_list.size()
+        song_list.selection_clear(0, END)
+        song_list.selection_set(prev_index)
+        song_list.activate(prev_index)
+
+        # Reset and play the previous song
+        is_playing = False
+        is_paused = False
+        play_song(song_list)
+
+
+def update_time_display():
+    """Update the time display as the song plays."""
+    if is_playing and not is_paused:
+        # Get the current time
+        current_time = mixer.music.get_pos() // 1000
+
+        # Update the current time label
+        current_time_label.config(
+            text=f"{time.strftime('%M:%S', time.gmtime(current_time))} / {time.strftime('%M:%S', time.gmtime(current_song_length))}"
+        )
+
+        if current_time < current_song_length:
+            # Schedule the next update
+            root.after(1000, update_time_display)
+
+
+def get_song_length(song_path):
+    """Get the total length of a song."""
+    try:
+        song_path = os.path.abspath(song_path)
+        return int(mixer.Sound(song_path).get_length())
+    except Exception as e:
+        print(f"Error getting song length: {e}")
+    return 0
+
+
+def load_svg_icon(file_path, size=(24, 24)):
+    """Load an SVG icon and resize it."""
+    return tksvg.SvgImage(
+        master=controls_frame,
+        file=file_path,
+        width=size[0],
+        height=size[1],
+    )
+
+
+# Initialize GUI
 root = Tk()
-root.geometry("700x270")
-root.title("My Music Player")
-
-# It helps to stop the change of the window size.
+root.geometry("900x250")
+root.title("Mp3 Music Player")
 root.resizable(False, False)
+root.configure(bg="#2f2f2f")
 
-# Creating the frames of the music player
-song_frame = LabelFrame(root, text="Current song", bg="LightBlue", width=506, height=90)
-song_frame.place(x=0, y=0)
+# Global Variables
+is_playing = False  # Tracks whether a song is playing
+is_paused = False  # Tracks whether a song is paused
+current_song_name = StringVar(value="")  # Tracks the current song name
+current_song_length = 0  # Stores the length of the current song in seconds
 
-button_frame = LabelFrame(
-    root, text="Control Buttons", bg="Turquoise", width=506, height=160
-)
-button_frame.place(y=90)
-
-listbox_frame = LabelFrame(root, text="Playlist", bg="RoyalBlue", height=200, width=300)
-listbox_frame.place(x=505, y=0)
-
-volume_frame = LabelFrame(root, text="Volume", bg="Turquoise")
-volume_frame.place(x=400, y=100)
-
-duration_frame = Label(
+# Frames and Layout
+playlist_frame = LabelFrame(
     root,
-    bg="pink",
-    text="Time Elapsed: 00:00 / 00:00",
-    bd=2,
-    relief=GROOVE,
-    width=28,
-    height=2,
-    font=("Times", 10, "bold"),
+    text="Playlist",
+    bg="#0c0556",
+    border=0,
+    fg="white",
+    font=("Arial", 10, "bold"),
+    padx=5,
+    pady=5,
 )
-duration_frame.place(x=505, y=214)
+playlist_frame.grid(row=0, column=0, rowspan=2, pady=10, sticky="ns")
 
-# StringVar is used to manipulate text in entry, labels.
-current_song = StringVar(root, value="<Not selected>")
-song_status = StringVar(root, value="<Not Available>")
-
-# Playlist Listbox.
-playlist = Listbox(listbox_frame, font=("Helvetica", 11), selectbackground="Gold")
-
-# Make the scroll bar to scroll the playlist.
-scroll_bar = Scrollbar(listbox_frame, orient=VERTICAL)
-scroll_bar.pack(side=RIGHT, fill=BOTH)
-scroll_bar.config(command=playlist.yview)
-
-playlist.config(yscrollcommand=scroll_bar.set)
-playlist.pack(fill=BOTH, padx=5, pady=5)
-
-# SongFrame labels.
-Label(
-    song_frame, text="CURRENTLY PLAYING: ", bg="LightBlue", font=("Times", 10, "bold")
-).place(x=5, y=20)
-
-song_lbl = Label(
-    song_frame, textvariable=current_song, font=("Times", 12), bg="GoldenRod"
+info_frame = LabelFrame(
+    root, bg="#0c0556", fg="white", border=0, font=("Arial", 10, "bold")
 )
-song_lbl.place(x=150, y=20)
-
-# Buttons in the main screen.
-pause_btn = Button(
-    button_frame,
-    text="Pause",
-    bg="Aqua",
-    font=("Georgia", 13),
-    width=7,
-    command=lambda: pause_song(song_status),
+info_frame.grid(
+    row=0,
+    column=1,
+    columnspan=2,
+    padx=(0, 10),
+    pady=5,
+    sticky="ew",
 )
-pause_btn.place(x=15, y=20)
 
-stop_btn = Button(
-    button_frame,
-    text="Stop",
-    bg="Aqua",
-    font=("Georgia", 13),
-    width=7,
-    command=lambda: stop_song(song_status),
+controls_frame = LabelFrame(root, bg="#0c0556", border=0, font=("Arial", 11, "bold"))
+controls_frame.grid(row=1, column=1, columnspan=2, padx=(0, 10), pady=5)
+
+# Configure the root window grid
+root.grid_columnconfigure(0, weight=1)
+root.grid_columnconfigure(1, weight=1)
+root.grid_columnconfigure(2, weight=1)
+
+# Playlist
+playlist = Listbox(
+    playlist_frame,
+    font=("Arial", 10, "bold"),
+    bg="white",
+    fg="black",
+    selectbackground="#1b0cb1",
+    width=25,
 )
-stop_btn.place(x=105, y=20)
+playlist.pack(side="left", fill=BOTH, padx=5, pady=5)
+scrollbar = Scrollbar(playlist_frame, orient=VERTICAL)
+scrollbar.pack(side=RIGHT, fill=BOTH)
+playlist.config(yscrollcommand=scrollbar.set)
+scrollbar.config(command=playlist.yview)
 
-play_btn = Button(
-    button_frame,
-    text="Play",
-    bg="Aqua",
-    font=("Georgia", 13),
-    width=7,
-    command=lambda: play_song(current_song, playlist, song_status),
-)
-play_btn.place(x=195, y=20)
-
-resume_btn = Button(
-    button_frame,
-    text="Resume",
-    bg="Aqua",
-    font=("Georgia", 13),
-    width=7,
-    command=lambda: resume_song(song_status),
-)
-resume_btn.place(x=285, y=20)
-
-dir_btn = Button(
-    button_frame,
+# Playlist Buttons
+Button(
+    playlist_frame,
     text="Load Directory",
-    bg="Aqua",
-    font=("Georgia", 13),
-    width=35,
-    command=lambda: load(playlist),
-)
-dir_btn.place(x=10, y=75)
+    bg="white",
+    fg="black",
+    font=("Arial", 10, "bold"),
+    command=lambda: load_songs(playlist),
+).pack(pady=5)
 
-# Control the volume of the song.
-volume_slider = Scale(
-    volume_frame,
-    from_=100,
-    to=0,
-    orient=VERTICAL,
-    command=volume,
-    length=110,
-    bg="orange",
-    cursor="hand2",
-)
-volume_slider.set(30)
-volume_slider.pack()
+Button(
+    playlist_frame,
+    text="Delete",
+    bg="#e8301d",
+    fg="white",
+    font=("Arial", 10, "bold"),
+    command=lambda: playlist.delete(ACTIVE),
+).pack(pady=5)
+
+# Info Display
+Label(
+    info_frame,
+    text="Current Song: ",
+    bg="#0c0556",
+    fg="white",
+    font=("Arial", 10, "bold"),
+).grid(row=0, column=0, padx=5, sticky="w")
 
 Label(
-    root, textvariable=song_status, bg="SteelBlue", font=("Times", 8), justify=LEFT
-).pack(side=BOTTOM, fill=X)
+    info_frame,
+    textvariable=current_song_name,
+    bg="#0c0556",
+    fg="white",
+    font=("Arial", 10),
+).grid(row=0, column=1, sticky="w")
 
-# Finalize and start the main loop of the GUI.
-root.update()
+info_frame.grid_columnconfigure(2, weight=1)
+
+current_time_label = Label(
+    info_frame,
+    text="00:00 / 00:00",
+    bg="#0c0556",
+    fg="white",
+    font=("Arial", 10, "bold"),
+)
+current_time_label.grid(row=0, column=3, padx=5, sticky="e")  # Aligned to the right
+
+# Button Icons
+play_icon = load_svg_icon("icons/play.svg")
+pause_icon = load_svg_icon("icons/pause.svg")
+stop_icon = load_svg_icon("icons/stop.svg")
+prev_icon = load_svg_icon("icons/prev.svg")
+next_icon = load_svg_icon("icons/next.svg")
+
+# Previous Song Button
+Button(
+    controls_frame,
+    image=prev_icon,
+    bg="white",
+    command=lambda: previous_song(playlist),
+).grid(row=0, column=0, padx=10, pady=5)
+
+# Play/Pause Button
+play_btn = Button(
+    controls_frame,
+    image=play_icon,
+    bg="white",
+    command=lambda: handle_song_state(playlist),
+)
+play_btn.grid(row=0, column=1, padx=10, pady=5)
+
+# Stop Button
+Button(controls_frame, image=stop_icon, bg="white", command=stop_song).grid(
+    row=0, column=2, padx=10, pady=5
+)
+
+# Next Song Button
+Button(
+    controls_frame, image=next_icon, bg="white", command=lambda: next_song(playlist)
+).grid(row=0, column=3, padx=10, pady=5)
+
+
+# Run the application
 root.mainloop()
