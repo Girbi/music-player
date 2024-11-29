@@ -4,17 +4,13 @@ from tkinter import (
     ACTIVE,
     BOTH,
     END,
-    RIGHT,
-    VERTICAL,
     Button,
     Label,
     LabelFrame,
     Listbox,
-    Scrollbar,
     StringVar,
     Tk,
 )
-
 import pygame.mixer as mixer
 import tksvg
 
@@ -24,7 +20,7 @@ mixer.init()
 
 # Helper Functions
 def load_songs(listbox: Listbox):
-    """Load all songs from a directory."""
+    """Load all songs from the audio directory."""
 
     directory = "./audio"
     os.chdir(directory)
@@ -37,6 +33,9 @@ def load_songs(listbox: Listbox):
 def play_song(song_list: Listbox):
     """Play the selected song."""
     global is_playing, is_paused, current_song_length
+
+    if not song_list.curselection():
+        song_list.selection_set(0)
 
     selected_song = song_list.get(ACTIVE)
     if not selected_song:
@@ -92,6 +91,10 @@ def stop_song():
 def next_song(song_list: Listbox):
     """Play the next song in the playlist."""
     global is_playing, is_paused
+
+    if not song_list.curselection():
+        song_list.selection_set(0)
+
     current_index = song_list.curselection()
     if current_index:
         # Select the next song
@@ -109,6 +112,10 @@ def next_song(song_list: Listbox):
 def previous_song(song_list: Listbox):
     """Play the previous song in the playlist."""
     global is_playing, is_paused
+
+    if not song_list.curselection():
+        song_list.selection_set(0)
+
     current_index = song_list.curselection()
     if current_index:
         # Select the previous song
@@ -159,12 +166,14 @@ def load_svg_icon(file_path, size=(24, 24)):
     )
 
 
+# main_bg_color = "#948785"
+main_bg_color = "#d2d4d6"
+
 # Initialize GUI
 root = Tk()
 root.geometry("400x400")
 root.title("Mp3 Music Player")
-root.resizable(False, False)
-root.configure(bg="#2f2f2f")
+root.configure(bg=main_bg_color)
 
 # Global Variables
 is_playing = False  # Tracks whether a song is playing
@@ -176,77 +185,82 @@ current_song_length = 0  # Stores the length of the current song in seconds
 playlist_frame = LabelFrame(
     root,
     text="Playlist",
-    bg="#0c0556",
+    bg=main_bg_color,
     border=0,
-    fg="white",
-    font=("Arial", 10, "bold"),
-    # padx=5,
-    # pady=5,
+    fg="#8f2250",
+    font=("Arial", 15, "bold"),
 )
-playlist_frame.grid(row=0, column=0, pady=10, sticky="ns")
+playlist_frame.grid(row=0, column=0, pady=5, padx=5, sticky="nsew")
 
 info_frame = LabelFrame(
-    root, bg="#0c0556", fg="white", border=0, font=("Arial", 10, "bold")
+    root,
+    fg="white",
+    border=0,
+    font=("Arial", 12, "bold"),
 )
 info_frame.grid(
     row=1,
     column=0,
-    padx=(0, 10),
+    padx=10,
     pady=5,
     sticky="ew",
 )
 
-controls_frame = LabelFrame(root, bg="#0c0556", border=0, font=("Arial", 11, "bold"))
-controls_frame.grid(row=2, column=0, padx=(0, 10), pady=5)
+controls_frame = LabelFrame(
+    root,
+    bg=main_bg_color,
+    border=0,
+    font=("Arial", 11, "bold"),
+)
+controls_frame.grid(
+    row=2,
+    column=0,
+    padx=10,
+    pady=10,
+)
 
-# root.grid_columnconfigure(0, weight=1)  # Playlist column
-# root.grid_columnconfigure(1, weight=1)  # Info and controls columns
-# root.grid_columnconfigure(2, weight=1)
+root.grid_rowconfigure(0, weight=1)
+root.grid_rowconfigure(1, weight=1)
+root.grid_rowconfigure(2, weight=1)
+root.grid_columnconfigure(0, weight=1)
 
 
 # Playlist
 playlist = Listbox(
     playlist_frame,
-    font=("Arial", 10, "bold"),
-    bg="white",
-    fg="black",
-    selectbackground="#1b0cb1",
-    width=25,
+    font=("Arial", 14, "bold"),
+    bg="#2c528a",
+    # fg="#e32753",
+    # fg="#c4569c",
+    fg="#b9d6fa",
+    selectbackground="#426d8a",
+    selectforeground="#f28dbf",
+    width=30,
+    height=10,
 )
-playlist.pack(side="left", fill=BOTH, padx=5, pady=5)
-scrollbar = Scrollbar(playlist_frame, orient=VERTICAL)
-scrollbar.pack(side=RIGHT, fill=BOTH)
-playlist.config(yscrollcommand=scrollbar.set)
-scrollbar.config(command=playlist.yview)
-
+playlist.pack(side="top", fill=BOTH, padx=5, pady=5)
 
 # Info Display
 Label(
     info_frame,
-    text="Playing: ",
-    bg="#0c0556",
-    fg="white",
-    font=("Arial", 10, "bold"),
-).grid(row=0, column=0, padx=5, sticky="w")
-
-Label(
-    info_frame,
     textvariable=current_song_name,
-    bg="#0c0556",
-    fg="white",
-    font=("Arial", 10),
-).grid(row=0, column=1, sticky="w")
+    bg=main_bg_color,
+    fg="#8f2250",
+    font=("Arial", 15, "bold"),
+    anchor="center",
+).grid(row=0, column=0, columnspan=3, sticky="ew")
 
 info_frame.grid_columnconfigure(2, weight=1)
 
 current_time_label = Label(
     info_frame,
     text="00:00 / 00:00",
-    bg="#0c0556",
-    fg="white",
-    font=("Arial", 10, "bold"),
+    bg=main_bg_color,
+    fg="#8f2250",
+    font=("Arial", 12, "bold"),
+    anchor="center",
 )
-current_time_label.grid(row=1, column=0, columnspan=3, padx=5, sticky="ew")
+current_time_label.grid(row=1, column=0, columnspan=3, sticky="ew")
 
 # Button Icons
 play_icon = load_svg_icon("icons/play.svg")
@@ -259,28 +273,46 @@ next_icon = load_svg_icon("icons/next.svg")
 Button(
     controls_frame,
     image=prev_icon,
-    bg="white",
+    bg=main_bg_color,
+    border=0,
+    activebackground="#2c528a",
     command=lambda: previous_song(playlist),
-).grid(row=0, column=0, padx=10, pady=5)
+    anchor="center",
+).grid(row=0, column=0, columnspan=3, padx=50)
 
 # Play/Pause Button
 play_btn = Button(
     controls_frame,
     image=play_icon,
-    bg="white",
+    bg=main_bg_color,
+    border=0,
+    anchor="center",
+    activebackground="#2c528a",
     command=lambda: handle_song_state(playlist),
 )
-play_btn.grid(row=0, column=1, padx=10, pady=5)
+play_btn.grid(row=0, column=1, columnspan=3, padx=50)
 
 # Stop Button
-Button(controls_frame, image=stop_icon, bg="white", command=stop_song).grid(
-    row=0, column=2, padx=10, pady=5
-)
+Button(
+    controls_frame,
+    image=stop_icon,
+    bg=main_bg_color,
+    border=0,
+    activebackground="#2c528a",
+    anchor="center",
+    command=stop_song,
+).grid(row=0, column=2, columnspan=3, padx=50)
 
 # Next Song Button
 Button(
-    controls_frame, image=next_icon, bg="white", command=lambda: next_song(playlist)
-).grid(row=0, column=3, padx=10, pady=5)
+    controls_frame,
+    image=next_icon,
+    bg=main_bg_color,
+    border=0,
+    anchor="center",
+    activebackground="#2c528a",
+    command=lambda: next_song(playlist),
+).grid(row=0, column=3, columnspan=3, padx=50)
 
 load_songs(playlist)
 # Run the application
