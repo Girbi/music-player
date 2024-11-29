@@ -4,7 +4,6 @@ from tkinter import (
     ACTIVE,
     BOTH,
     END,
-    GROOVE,
     RIGHT,
     VERTICAL,
     Button,
