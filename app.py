@@ -13,7 +13,6 @@ from tkinter import (
     Scrollbar,
     StringVar,
     Tk,
-    filedialog,
 )
 
 import pygame.mixer as mixer
@@ -26,13 +25,13 @@ mixer.init()
 # Helper Functions
 def load_songs(listbox: Listbox):
     """Load all songs from a directory."""
-    directory = filedialog.askdirectory(title="Select Songs Directory")
-    if directory:
-        os.chdir(directory)
-        songs = [song for song in os.listdir() if song.endswith(".mp3")]
-        listbox.delete(0, END)
-        for song in songs:
-            listbox.insert(END, song)
+
+    directory = "./audio"
+    os.chdir(directory)
+    songs = [song for song in os.listdir() if song.endswith(".mp3")]
+    listbox.delete(0, END)
+    for song in songs:
+        listbox.insert(END, song)
 
 
 def play_song(song_list: Listbox):
@@ -44,7 +43,8 @@ def play_song(song_list: Listbox):
         return  # No song selected
 
     # Update the current song name
-    current_song_name.set(selected_song)
+    nameSize = len(selected_song) - 4
+    current_song_name.set(selected_song[0:nameSize])
 
     # Load and play the selected song
     mixer.music.load(selected_song)
@@ -161,7 +161,7 @@ def load_svg_icon(file_path, size=(24, 24)):
 
 # Initialize GUI
 root = Tk()
-root.geometry("900x250")
+root.geometry("400x400")
 root.title("Mp3 Music Player")
 root.resizable(False, False)
 root.configure(bg="#2f2f2f")
@@ -180,30 +180,29 @@ playlist_frame = LabelFrame(
     border=0,
     fg="white",
     font=("Arial", 10, "bold"),
-    padx=5,
-    pady=5,
+    # padx=5,
+    # pady=5,
 )
-playlist_frame.grid(row=0, column=0, rowspan=2, pady=10, sticky="ns")
+playlist_frame.grid(row=0, column=0, pady=10, sticky="ns")
 
 info_frame = LabelFrame(
     root, bg="#0c0556", fg="white", border=0, font=("Arial", 10, "bold")
 )
 info_frame.grid(
-    row=0,
-    column=1,
-    columnspan=2,
+    row=1,
+    column=0,
     padx=(0, 10),
     pady=5,
     sticky="ew",
 )
 
 controls_frame = LabelFrame(root, bg="#0c0556", border=0, font=("Arial", 11, "bold"))
-controls_frame.grid(row=1, column=1, columnspan=2, padx=(0, 10), pady=5)
+controls_frame.grid(row=2, column=0, padx=(0, 10), pady=5)
 
-# Configure the root window grid
-root.grid_columnconfigure(0, weight=1)
-root.grid_columnconfigure(1, weight=1)
-root.grid_columnconfigure(2, weight=1)
+# root.grid_columnconfigure(0, weight=1)  # Playlist column
+# root.grid_columnconfigure(1, weight=1)  # Info and controls columns
+# root.grid_columnconfigure(2, weight=1)
+
 
 # Playlist
 playlist = Listbox(
@@ -220,29 +219,11 @@ scrollbar.pack(side=RIGHT, fill=BOTH)
 playlist.config(yscrollcommand=scrollbar.set)
 scrollbar.config(command=playlist.yview)
 
-# Playlist Buttons
-Button(
-    playlist_frame,
-    text="Load Directory",
-    bg="white",
-    fg="black",
-    font=("Arial", 10, "bold"),
-    command=lambda: load_songs(playlist),
-).pack(pady=5)
-
-Button(
-    playlist_frame,
-    text="Delete",
-    bg="#e8301d",
-    fg="white",
-    font=("Arial", 10, "bold"),
-    command=lambda: playlist.delete(ACTIVE),
-).pack(pady=5)
 
 # Info Display
 Label(
     info_frame,
-    text="Current Song: ",
+    text="Playing: ",
     bg="#0c0556",
     fg="white",
     font=("Arial", 10, "bold"),
@@ -265,7 +246,7 @@ current_time_label = Label(
     fg="white",
     font=("Arial", 10, "bold"),
 )
-current_time_label.grid(row=0, column=3, padx=5, sticky="e")  # Aligned to the right
+current_time_label.grid(row=1, column=0, columnspan=3, padx=5, sticky="ew")
 
 # Button Icons
 play_icon = load_svg_icon("icons/play.svg")
@@ -301,6 +282,6 @@ Button(
     controls_frame, image=next_icon, bg="white", command=lambda: next_song(playlist)
 ).grid(row=0, column=3, padx=10, pady=5)
 
-
+load_songs(playlist)
 # Run the application
 root.mainloop()
