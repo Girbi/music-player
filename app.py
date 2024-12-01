@@ -1,7 +1,6 @@
 import os
 import time
 from tkinter import (
-    ACTIVE,
     BOTH,
     END,
     Button,
@@ -30,20 +29,22 @@ def load_songs(listbox: Listbox):
         listbox.insert(END, song)
 
 
-def play_song(song_list: Listbox):
+def play_song(playlist: Listbox):
     """Play the selected song."""
     global is_playing, is_paused, current_song_length
 
-    if not song_list.curselection():
-        song_list.selection_set(0)
+    # Get the selected song
+    selected_index = playlist.curselection()
+    if not selected_index:
+        return  # No song selected
 
-    selected_song = song_list.get(ACTIVE)
+    selected_song = playlist.get(selected_index)
     if not selected_song:
         return  # No song selected
 
     # Update the current song name
     nameSize = len(selected_song) - 4
-    current_song_name.set(selected_song[0:nameSize])
+    current_song_name.set(selected_song[:nameSize])
 
     # Load and play the selected song
     mixer.music.load(selected_song)
@@ -56,15 +57,25 @@ def play_song(song_list: Listbox):
     is_paused = False
     play_btn.config(image=pause_icon)
 
+    # Highlight the currently playing song
+    playlist.selection_clear(0, END)
+    playlist.selection_set(selected_index)
+    playlist.activate(selected_index)
+
     # Update the current time display
     update_time_display()
 
 
-def handle_song_state(song_list: Listbox):
-    """Play, pause, or resume the selected song."""
+def handle_song_state(playlist: Listbox):
+    """Play the first song on start or toggle play/pause for the current song."""
     global is_playing, is_paused
 
-    if is_playing and not is_paused:
+    if not is_playing:
+        # Play the first song if no song is playing
+        if not playlist.curselection():
+            playlist.selection_set(0)
+        play_song(playlist)
+    elif is_playing and not is_paused:
         # Pause the song
         mixer.music.pause()
         is_paused = True
@@ -74,60 +85,43 @@ def handle_song_state(song_list: Listbox):
         mixer.music.unpause()
         is_paused = False
         play_btn.config(image=pause_icon)
-    else:
-        # Play the song
-        play_song(song_list)
 
 
-def stop_song():
-    """Stop the current song."""
+def stop_song(playlist: Listbox):
+    """Stop the current song and reset the playlist."""
     global is_playing, is_paused
+
     mixer.music.stop()
     is_playing = False
     is_paused = False
     play_btn.config(image=play_icon)
 
+    # Clear current song name and reset selection
+    current_song_name.set("")
+    current_time_label.config(text="00:00 / 00:00")
+    playlist.selection_clear(0, END)
 
-def next_song(song_list: Listbox):
+
+def next_song(playlist: Listbox):
     """Play the next song in the playlist."""
-    global is_playing, is_paused
-
-    if not song_list.curselection():
-        song_list.selection_set(0)
-
-    current_index = song_list.curselection()
+    current_index = playlist.curselection()
     if current_index:
-        # Select the next song
-        next_index = (current_index[0] + 1) % song_list.size()
-        song_list.selection_clear(0, END)
-        song_list.selection_set(next_index)
-        song_list.activate(next_index)
-
-        # Reset and play the next song
-        is_playing = False
-        is_paused = False
-        play_song(song_list)
+        next_index = (current_index[0] + 1) % playlist.size()
+        playlist.selection_clear(0, END)
+        playlist.selection_set(next_index)
+        playlist.activate(next_index)
+        play_song(playlist)
 
 
-def previous_song(song_list: Listbox):
+def previous_song(playlist: Listbox):
     """Play the previous song in the playlist."""
-    global is_playing, is_paused
-
-    if not song_list.curselection():
-        song_list.selection_set(0)
-
-    current_index = song_list.curselection()
+    current_index = playlist.curselection()
     if current_index:
-        # Select the previous song
-        prev_index = (current_index[0] - 1) % song_list.size()
-        song_list.selection_clear(0, END)
-        song_list.selection_set(prev_index)
-        song_list.activate(prev_index)
-
-        # Reset and play the previous song
-        is_playing = False
-        is_paused = False
-        play_song(song_list)
+        prev_index = (current_index[0] - 1) % playlist.size()
+        playlist.selection_clear(0, END)
+        playlist.selection_set(prev_index)
+        playlist.activate(prev_index)
+        play_song(playlist)
 
 
 def update_time_display():
@@ -167,18 +161,6 @@ def load_svg_icon(file_path, size=(24, 24)):
 
 
 # Styles
-
-""" Color changes
-main_bg_color = "#1E1E1E"
-button_color = "#962d1a"
-button_active_color = "#3fa157"
-info_text_color = "#ed3e88"
-playlist_bg_color = "#722991"
-playlist_fg_color = "#de6a21"
-select_playlist_bg_color = "#440c5e"
-select_playlist_fg_color = "#3fa157"
-playing_color="#1A1423" """
-
 main_bg_color = "#EACDC2"
 button_color = "#EACDC2"
 button_active_color = "#840032"
@@ -188,7 +170,6 @@ playlist_bg_color = "#deb1ac"
 playlist_fg_color = "#372549"
 select_playlist_bg_color = "#774C60"
 select_playlist_fg_color = "#d77a61"
-
 
 # Frames and Styles
 frame_style = {"border": 0, "bg": main_bg_color, "font": ("Arial", 15, "bold")}
@@ -262,6 +243,8 @@ playlist = Listbox(
     height=10,
 )
 playlist.pack(side="top", fill=BOTH, padx=5, pady=5)
+
+# Update playlist double-click binding
 playlist.bind("<Double-1>", lambda event: play_song(playlist))
 
 # Info Display
@@ -307,7 +290,7 @@ Button(
     controls_frame,
     image=stop_icon,
     **button_style,
-    command=stop_song,
+    command=lambda: stop_song(playlist),
 ).grid(row=0, column=2, columnspan=3, padx=50)
 
 # Next Song Button
