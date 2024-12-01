@@ -166,8 +166,39 @@ def load_svg_icon(file_path, size=(24, 24)):
     )
 
 
-# main_bg_color = "#948785"
-main_bg_color = "#d2d4d6"
+# Styles
+
+""" Color changes
+main_bg_color = "#1E1E1E"
+button_color = "#962d1a"
+button_active_color = "#3fa157"
+info_text_color = "#ed3e88"
+playlist_bg_color = "#722991"
+playlist_fg_color = "#de6a21"
+select_playlist_bg_color = "#440c5e"
+select_playlist_fg_color = "#3fa157"
+playing_color="#1A1423" """
+
+main_bg_color = "#EACDC2"
+button_color = "#EACDC2"
+button_active_color = "#840032"
+playing_color = "#840032"
+info_text_color = "#774C60"
+playlist_bg_color = "#deb1ac"
+playlist_fg_color = "#372549"
+select_playlist_bg_color = "#774C60"
+select_playlist_fg_color = "#d77a61"
+
+
+# Frames and Styles
+frame_style = {"border": 0, "bg": main_bg_color, "font": ("Arial", 15, "bold")}
+button_style = {
+    "bg": main_bg_color,
+    "border": 0,
+    "anchor": "center",
+    "background": button_color,
+    "activebackground": button_active_color,
+}
 
 # Initialize GUI
 root = Tk()
@@ -181,20 +212,12 @@ is_paused = False  # Tracks whether a song is paused
 current_song_name = StringVar(value="")  # Tracks the current song name
 current_song_length = 0  # Stores the length of the current song in seconds
 
-# Frames and Layout
-playlist_frame = LabelFrame(
-    root,
-    text="Playlist",
-    bg=main_bg_color,
-    border=0,
-    fg="#8f2250",
-    font=("Arial", 15, "bold"),
-)
+# Frames
+playlist_frame = LabelFrame(root, text="Playlist", fg=playing_color, **frame_style)
 playlist_frame.grid(row=0, column=0, pady=5, padx=5, sticky="nsew")
 
 info_frame = LabelFrame(
     root,
-    fg="white",
     border=0,
     font=("Arial", 12, "bold"),
 )
@@ -206,12 +229,7 @@ info_frame.grid(
     sticky="ew",
 )
 
-controls_frame = LabelFrame(
-    root,
-    bg=main_bg_color,
-    border=0,
-    font=("Arial", 11, "bold"),
-)
+controls_frame = LabelFrame(root, **frame_style)
 controls_frame.grid(
     row=2,
     column=0,
@@ -224,44 +242,6 @@ root.grid_rowconfigure(1, weight=1)
 root.grid_rowconfigure(2, weight=1)
 root.grid_columnconfigure(0, weight=1)
 
-
-# Playlist
-playlist = Listbox(
-    playlist_frame,
-    font=("Arial", 14, "bold"),
-    bg="#2c528a",
-    # fg="#e32753",
-    # fg="#c4569c",
-    fg="#b9d6fa",
-    selectbackground="#426d8a",
-    selectforeground="#f28dbf",
-    width=30,
-    height=10,
-)
-playlist.pack(side="top", fill=BOTH, padx=5, pady=5)
-
-# Info Display
-Label(
-    info_frame,
-    textvariable=current_song_name,
-    bg=main_bg_color,
-    fg="#8f2250",
-    font=("Arial", 15, "bold"),
-    anchor="center",
-).grid(row=0, column=0, columnspan=3, sticky="ew")
-
-info_frame.grid_columnconfigure(2, weight=1)
-
-current_time_label = Label(
-    info_frame,
-    text="00:00 / 00:00",
-    bg=main_bg_color,
-    fg="#8f2250",
-    font=("Arial", 12, "bold"),
-    anchor="center",
-)
-current_time_label.grid(row=1, column=0, columnspan=3, sticky="ew")
-
 # Button Icons
 play_icon = load_svg_icon("icons/play.svg")
 pause_icon = load_svg_icon("icons/pause.svg")
@@ -269,25 +249,55 @@ stop_icon = load_svg_icon("icons/stop.svg")
 prev_icon = load_svg_icon("icons/prev.svg")
 next_icon = load_svg_icon("icons/next.svg")
 
+
+# Playlist
+playlist = Listbox(
+    playlist_frame,
+    font=("Arial", 14, "bold"),
+    bg=playlist_bg_color,
+    fg=playlist_fg_color,
+    selectbackground=select_playlist_bg_color,
+    selectforeground=select_playlist_fg_color,
+    width=30,
+    height=10,
+)
+playlist.pack(side="top", fill=BOTH, padx=5, pady=5)
+playlist.bind("<Double-1>", lambda event: play_song(playlist))
+
+# Info Display
+label_layout = {
+    "bg": main_bg_color,
+    "fg": info_text_color,
+    "anchor": "center",
+    "font": ("Arial", 15, "bold"),
+}
+Label(
+    info_frame,
+    textvariable=current_song_name,
+    **label_layout,
+).grid(row=0, column=0, columnspan=3, sticky="ew")
+info_frame.grid_columnconfigure(2, weight=1)
+
+current_time_label = Label(
+    info_frame,
+    text="00:00 / 00:00",
+    **label_layout,
+)
+current_time_label.grid(row=1, column=0, columnspan=3, sticky="ew")
+
 # Previous Song Button
 Button(
     controls_frame,
     image=prev_icon,
-    bg=main_bg_color,
-    border=0,
-    activebackground="#2c528a",
+    **button_style,
     command=lambda: previous_song(playlist),
-    anchor="center",
 ).grid(row=0, column=0, columnspan=3, padx=50)
 
 # Play/Pause Button
 play_btn = Button(
     controls_frame,
     image=play_icon,
-    bg=main_bg_color,
-    border=0,
-    anchor="center",
-    activebackground="#2c528a",
+    **button_style,
     command=lambda: handle_song_state(playlist),
 )
 play_btn.grid(row=0, column=1, columnspan=3, padx=50)
@@ -296,10 +306,7 @@ play_btn.grid(row=0, column=1, columnspan=3, padx=50)
 Button(
     controls_frame,
     image=stop_icon,
-    bg=main_bg_color,
-    border=0,
-    activebackground="#2c528a",
-    anchor="center",
+    **button_style,
     command=stop_song,
 ).grid(row=0, column=2, columnspan=3, padx=50)
 
@@ -307,13 +314,12 @@ Button(
 Button(
     controls_frame,
     image=next_icon,
-    bg=main_bg_color,
-    border=0,
-    anchor="center",
-    activebackground="#2c528a",
+    **button_style,
     command=lambda: next_song(playlist),
 ).grid(row=0, column=3, columnspan=3, padx=50)
 
+# Run when the app opens
 load_songs(playlist)
+
 # Run the application
 root.mainloop()
